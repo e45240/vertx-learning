@@ -17,9 +17,6 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <!-- vert.x properties -->
         <vertx.version>3.7.1</vertx.version>
-        <vertx.verticle>com.e45240.wiki.MainVerticle</vertx.verticle>
-        <!-- Maven plugins -->
-        <vertx-maven-plugin.version>1.0.13</vertx-maven-plugin.version>
     </properties>
     <dependencyManagement>
         <dependencies>

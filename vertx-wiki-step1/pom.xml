@@ -11,6 +11,12 @@
 
     <artifactId>vertx-wiki-step1</artifactId>
 
+    <properties>
+        <vertx.verticle>com.e45240.wiki.MainVerticle</vertx.verticle>
+        <!-- Maven plugins -->
+        <vertx-maven-plugin.version>1.0.13</vertx-maven-plugin.version>
+    </properties>
+
     <build>
         <plugins>
             <plugin>
