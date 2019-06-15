@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
@@ -131,4 +132,16 @@ class WikiDatabaseServiceImpl implements WikiDatabaseService {
         return this;
     }
 
+    @Override
+    public WikiDatabaseService fetchAllPagesData(Handler<AsyncResult<List<JsonObject>>> resultHandler) {
+        jdbcClient.query(sqlQueries.get(SqlQuery.ALL_PAGES_DATA), fetch -> {
+            if (fetch.succeeded()) {
+                resultHandler.handle(Future.succeededFuture(fetch.result().getRows()));
+            } else {
+                LOGGER.error("Database query error", fetch.cause());
+                resultHandler.handle(Future.failedFuture(fetch.cause()));
+            }
+        });
+        return this;
+    }
 }

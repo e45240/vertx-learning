@@ -15,7 +15,7 @@ public class MainVerticle extends AbstractVerticle {
         dbVerticleDeployment.compose(id -> {
             Future<String> httpVerticleDeployment = Future.future();
             vertx.deployVerticle(HttpServerVerticle.class,
-                    new DeploymentOptions().setInstances(2),
+                    new DeploymentOptions().setInstances(1),
                     httpVerticleDeployment);
             return httpVerticleDeployment;
         }).setHandler(ar -> {

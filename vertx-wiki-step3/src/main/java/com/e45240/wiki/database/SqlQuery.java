@@ -16,6 +16,11 @@ public enum SqlQuery {
     ALL_PAGES,
 
     /**
+     * 查询所有条目数据
+     */
+    ALL_PAGES_DATA,
+
+    /**
      * 获取条目
      */
     GET_PAGE,
