@@ -26,6 +26,11 @@ public enum SqlQuery {
     GET_PAGE,
 
     /**
+     * 根据id获取条目
+     */
+    GET_PAGE_BY_ID,
+
+    /**
      * 创建条目
      */
     CREATE_PAGE,
