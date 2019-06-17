@@ -9,6 +9,7 @@
         <module>vertx-wiki-step1</module>
         <module>vertx-wiki-step2</module>
         <module>vertx-wiki-step3</module>
+        <module>vertx-wiki-step4</module>
     </modules>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
