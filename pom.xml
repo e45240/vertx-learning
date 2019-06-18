@@ -11,6 +11,7 @@
         <module>vertx-wiki-step3</module>
         <module>vertx-wiki-step4</module>
         <module>vertx-async-db</module>
+        <module>vertx-app</module>
     </modules>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -32,18 +33,22 @@
             <dependency>
                 <groupId>io.vertx</groupId>
                 <artifactId>vertx-core</artifactId>
+                <version>${vertx.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.vertx</groupId>
                 <artifactId>vertx-web</artifactId>
+                <version>${vertx.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.vertx</groupId>
                 <artifactId>vertx-web-templ-freemarker</artifactId>
+                <version>${vertx.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.vertx</groupId>
                 <artifactId>vertx-jdbc-client</artifactId>
+                <version>${vertx.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.mchange</groupId>
