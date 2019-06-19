@@ -1,6 +1,6 @@
 # mysql-jooq-test
 
-use [vertx-jooq](https://github.com/jklingsporn/vertx-jooq/tree/master/vertx-jooq-rx-async) to generate CRUD template code
+use [vertx-jooq-rx-mysql](https://github.com/jklingsporn/vertx-jooq/tree/master/vertx-jooq-rx-async) to generate CRUD template code
 
 ## Features
 - mysql-async
