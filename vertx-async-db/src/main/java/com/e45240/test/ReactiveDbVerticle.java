@@ -12,9 +12,9 @@ import org.slf4j.LoggerFactory;
 
 import java.util.stream.Collectors;
 
-public class DbTestVerticle extends AbstractVerticle {
+public class ReactiveDbVerticle extends AbstractVerticle {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(DbTestVerticle.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ReactiveDbVerticle.class);
 
     @Override
     public void start() throws Exception {
@@ -46,7 +46,7 @@ public class DbTestVerticle extends AbstractVerticle {
     }
 
     public static void main(String[] args) {
-        Vertx.vertx().deployVerticle(DbTestVerticle.class.getName());
+        Vertx.vertx().deployVerticle(ReactiveDbVerticle.class.getName());
     }
 
 }
