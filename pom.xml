@@ -11,7 +11,7 @@
         <module>vertx-wiki-step3</module>
         <module>vertx-wiki-step4</module>
         <module>vertx-async-db</module>
-        <module>vertx-app</module>
+        <module>jooq-test</module>
     </modules>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
