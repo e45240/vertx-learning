@@ -12,5 +12,5 @@ Details:
 ## [vertx-async-db](vertx-async-db)
 mysql fluent-style sequential programming based on callback  
 
-## [jooq-test](jooq-test)
+## [vertx-jooq-rx-mysql](vertx-jooq-rx-mysql)
 use [verx-jooq](https://github.com/jklingsporn/vertx-jooq/tree/master/vertx-jooq-rx-async) to generate CRUD template code
