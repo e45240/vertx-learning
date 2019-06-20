@@ -9,7 +9,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>jooq-test</artifactId>
+    <artifactId>vertx-jooq-rx-mysql</artifactId>
 
     <dependencies>
         <dependency>
