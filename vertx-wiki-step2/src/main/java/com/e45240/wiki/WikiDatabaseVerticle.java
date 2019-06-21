@@ -1,65 +1,61 @@
 package com.e45240.wiki;
 
+import com.e45240.wiki.tables.daos.PagesDao;
+import com.e45240.wiki.tables.pojos.Pages;
+import io.vertx.config.ConfigRetriever;
+import io.vertx.config.ConfigRetrieverOptions;
+import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.jdbc.JDBCClient;
-import io.vertx.ext.sql.ResultSet;
-import io.vertx.ext.sql.SQLConnection;
+import io.vertx.ext.asyncsql.AsyncSQLClient;
+import io.vertx.ext.asyncsql.MySQLClient;
+import org.jooq.Configuration;
+import org.jooq.SQLDialect;
+import org.jooq.impl.DefaultConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Properties;
 import java.util.stream.Collectors;
 
 public class WikiDatabaseVerticle extends AbstractVerticle {
-
-    public static final String CONFIG_WIKIDB_JDBC_URL = "wikidb.jdbc.url";
-    public static final String CONFIG_WIKIDB_JDBC_DRIVER_CLASS = "wikidb.jdbc.driver_class";
-    public static final String CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE = "wikidb.jdbc.max_pool_size";
-    public static final String CONFIG_WIKIDB_SQL_QUERIES_RESOURCE_FILE = "wikidb.sqlqueries.resource.file";
 
     public static final String CONFIG_WIKIDB_QUEUE = "wikidb.queue";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(WikiDatabaseVerticle.class);
 
-    private final HashMap<SqlQuery, String> sqlQueries = new HashMap<>();
-
-    private JDBCClient jdbcClient;
+    private PagesDao pagesDao;
 
     @Override
     public void start(Future<Void> startFuture) throws Exception {
         // this uses blocking APIs, but data is small...
-        loadSqlQueries();
 
-        jdbcClient = JDBCClient.createShared(vertx, new JsonObject()
-                .put("url", config().getString(CONFIG_WIKIDB_JDBC_URL, "jdbc:hsqldb:file:db/wiki"))
-                .put("driver_class", config().getString(CONFIG_WIKIDB_JDBC_DRIVER_CLASS, "org.hsqldb.jdbcDriver"))
-                .put("max_pool_size", config().getInteger(CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE, 30)));
+        ConfigStoreOptions fileStore = new ConfigStoreOptions().setType("file").setConfig(new JsonObject().put("path", "db-config.json"));
+        ConfigRetrieverOptions configRetrieverOptions = new ConfigRetrieverOptions().addStore(fileStore);
 
-        jdbcClient.getConnection(ar -> {
-            if (ar.failed()) {
-                LOGGER.error("Could not open a database connection", ar.cause());
-                startFuture.fail(ar.cause());
-            } else {
-                SQLConnection connection = ar.result();
-                connection.execute(sqlQueries.get(SqlQuery.CREATE_PAGES_TABLE), create -> {
-                    connection.close();
-                    if (create.failed()) {
-                        LOGGER.error("Database preparation error", create.cause());
-                        startFuture.fail(create.cause());
+        ConfigRetriever configRetriever = ConfigRetriever.create(vertx, configRetrieverOptions);
+
+        configRetriever.getConfig(ar -> {
+            if (ar.succeeded()) {
+                AsyncSQLClient jdbcClient = MySQLClient.createShared(vertx, ar.result());
+                Configuration daoConfig = new DefaultConfiguration().set(SQLDialect.MYSQL);
+                pagesDao = new PagesDao(daoConfig, jdbcClient);
+                jdbcClient.getConnection(conn -> {
+                    if (conn.failed()) {
+                        LOGGER.error("Could not open a database connection", ar.cause());
+                        startFuture.fail(ar.cause());
                     } else {
-                        vertx.eventBus().consumer(config().getString(CONFIG_WIKIDB_QUEUE, "wikidb.queue"), this::onMessage);
+                        vertx.eventBus().consumer(CONFIG_WIKIDB_QUEUE, this::onMessage);
+                        conn.result().close();
                         startFuture.complete();
                     }
                 });
+            } else {
+                LOGGER.error("config error", ar.cause());
+                startFuture.fail(ar.cause());
             }
         });
     }
@@ -96,83 +92,74 @@ public class WikiDatabaseVerticle extends AbstractVerticle {
 
     private void fetchPage(Message<JsonObject> message) {
         String requestPage = message.body().getString("page");
-        JsonArray params = new JsonArray().add(requestPage);
 
-        jdbcClient.queryWithParams(sqlQueries.get(SqlQuery.GET_PAGE), params, fetch -> {
-           if (fetch.succeeded()) {
-               JsonObject response = new JsonObject();
-               ResultSet resultSet = fetch.result();
-               if (resultSet.getNumRows() == 0) {
-                   response.put("found", false);
-               } else {
-                   response.put("found", true);
-                   JsonArray row = resultSet.getResults().get(0);
-                   response.put("id", row.getInteger(0));
-                   response.put("rawContent", row.getString(1));
-               }
-               message.reply(response);
-           } else {
-               reportQueryError(message, fetch.cause());
-           }
-        });
+        pagesDao.findOneByName(requestPage)
+                .setHandler(res -> {
+                    if (res.succeeded()) {
+                        JsonObject response = new JsonObject();
+                        Pages page = res.result();
+                        if (page == null) {
+                            response.put("found", false);
+                        } else {
+                            response.put("found", true);
+                            response.put("id", page.getId());
+                            response.put("rawContent", page.getContent());
+                        }
+                        message.reply(response);
+                    } else {
+                        reportQueryError(message, res.cause());
+                    }
+                });
     }
 
     private void deletePage(Message<JsonObject> message) {
-        JsonArray data = new JsonArray().add(message.body().getString("id"));
-
-        jdbcClient.updateWithParams(sqlQueries.get(SqlQuery.DELETE_PAGE), data, res -> {
-           if (res.succeeded()) {
-               message.reply("ok");
-           } else {
-               reportQueryError(message, res.cause());
-           }
-        });
+        pagesDao.deleteById(message.body().getInteger("id"))
+                .setHandler(res -> {
+                    if (res.succeeded()) {
+                        message.reply("ok");
+                    } else {
+                        reportQueryError(message, res.cause());
+                    }
+                });
     }
 
     private void savePage(Message<JsonObject> message) {
         JsonObject request = message.body();
-        JsonArray data = new JsonArray()
-                .add(request.getString("markdown"))
-                .add(request.getString("id"));
-
-        jdbcClient.updateWithParams(sqlQueries.get(SqlQuery.SAVE_PAGE), data, res -> {
-           if (res.succeeded()) {
-               message.reply("ok");
-           } else {
-               reportQueryError(message, res.cause());
-           }
-        });
+        pagesDao.update(new Pages().setId(request.getInteger("id")).setContent(request.getString("markdown")))
+                .setHandler(res -> {
+                    if (res.succeeded()) {
+                        message.reply("ok");
+                    } else {
+                        reportQueryError(message, res.cause());
+                    }
+                });
     }
 
     private void createPage(Message<JsonObject> message) {
         JsonObject request = message.body();
-        JsonArray data = new JsonArray()
-                .add(request.getString("title"))
-                .add(request.getString("markdown"));
-
-        jdbcClient.updateWithParams(sqlQueries.get(SqlQuery.CREATE_PAGE), data, res -> {
-            if (res.succeeded()) {
-                message.reply("ok");
-            } else {
-                reportQueryError(message, res.cause());
-            }
-        });
+        pagesDao.insert(new Pages().setName(request.getString("title")).setContent(request.getString("markdown")))
+                .setHandler(res -> {
+                    if (res.succeeded()) {
+                        message.reply("ok");
+                    } else {
+                        reportQueryError(message, res.cause());
+                    }
+                });
     }
 
     private void fetchAllPage(Message<JsonObject> message) {
-        jdbcClient.query(sqlQueries.get(SqlQuery.ALL_PAGES), res -> {
-            if (res.succeeded()) {
-                List<String> pages = res.result()
-                        .getResults()
-                        .stream()
-                        .map(json -> json.getString(0))
-                        .sorted()
-                        .collect(Collectors.toList());
-                message.reply(new JsonObject().put("pages", new JsonArray(pages)));
-            } else {
-                reportQueryError(message, res.cause());
-            }
-        });
+        pagesDao.findAll()
+                .setHandler(res -> {
+                    if (res.succeeded()) {
+                        List<String> pages = res.result().stream()
+                                .map(Pages::getName)
+                                .sorted()
+                                .collect(Collectors.toList());
+                        message.reply(new JsonObject().put("pages", new JsonArray(pages)));
+                    } else {
+                        reportQueryError(message, res.cause());
+                    }
+                });
     }
 
     private void reportQueryError(Message<JsonObject> message, Throwable cause) {
@@ -180,64 +167,22 @@ public class WikiDatabaseVerticle extends AbstractVerticle {
         message.fail(ErrorCodes.DB_ERROR.ordinal(), cause.getMessage());
     }
 
-    private void loadSqlQueries() throws IOException {
-        String queriesFile = config().getString(CONFIG_WIKIDB_SQL_QUERIES_RESOURCE_FILE);
-        InputStream queriesInputStream;
-        if (queriesFile != null) {
-            queriesInputStream = new FileInputStream(queriesFile);
-        } else {
-            queriesInputStream = getClass().getResourceAsStream("/db-queries.properties");
-        }
-        Properties queriesProps = new Properties();
-        queriesProps.load(queriesInputStream);
-        queriesInputStream.close();
-
-        sqlQueries.put(SqlQuery.CREATE_PAGES_TABLE, queriesProps.getProperty("create-pages-table"));
-        sqlQueries.put(SqlQuery.ALL_PAGES, queriesProps.getProperty("all-pages"));
-        sqlQueries.put(SqlQuery.GET_PAGE, queriesProps.getProperty("get-page"));
-        sqlQueries.put(SqlQuery.CREATE_PAGE, queriesProps.getProperty("create-page"));
-        sqlQueries.put(SqlQuery.SAVE_PAGE, queriesProps.getProperty("save-page"));
-        sqlQueries.put(SqlQuery.DELETE_PAGE, queriesProps.getProperty("delete-page"));
-    }
-
     private enum ErrorCodes {
 
+        /**
+         * 未指定请求event标识
+         */
         NO_ACTION_SPECIFIED,
 
+        /**
+         * 请求event标识不合法
+         */
         BAD_ACTION,
 
+        /**
+         * 数据库异常
+         */
         DB_ERROR
     }
 
-    private enum SqlQuery {
-        /**
-         * 创建表
-         */
-        CREATE_PAGES_TABLE,
-
-        /**
-         * 查询所有条目
-         */
-        ALL_PAGES,
-
-        /**
-         * 获取条目
-         */
-        GET_PAGE,
-
-        /**
-         * 创建条目
-         */
-        CREATE_PAGE,
-
-        /**
-         * 更新条目
-         */
-        SAVE_PAGE,
-
-        /**
-         * 删除条目
-         */
-        DELETE_PAGE
-    }
 }

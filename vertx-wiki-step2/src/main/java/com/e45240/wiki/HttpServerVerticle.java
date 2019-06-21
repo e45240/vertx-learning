@@ -115,7 +115,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                 .put("markdown", markdown);
 
         DeliveryOptions options = new DeliveryOptions();
-        if ("yes".equals(newPage)) {
+        if (newPage) {
             options.addHeader("action", "create-page");
         } else {
             options.addHeader("action", "save-page");
