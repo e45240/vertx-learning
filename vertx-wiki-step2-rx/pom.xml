@@ -57,6 +57,12 @@
             <artifactId>vertx-jooq-rx-async</artifactId>
             <version>4.1.0</version>
         </dependency>
+
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-dropwizard-metrics</artifactId>
+            <version>3.7.1</version>
+        </dependency>
     </dependencies>
 
     <build>

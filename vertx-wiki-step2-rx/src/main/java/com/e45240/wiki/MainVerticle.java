@@ -1,9 +1,7 @@
 package com.e45240.wiki;
 
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.DeploymentOptions;
-import io.vertx.core.Future;
-import io.vertx.core.Vertx;
+import io.vertx.core.*;
+import io.vertx.ext.dropwizard.DropwizardMetricsOptions;
 
 public class MainVerticle extends AbstractVerticle {
 
@@ -11,7 +9,6 @@ public class MainVerticle extends AbstractVerticle {
     public void start(Future<Void> startFuture) throws Exception {
         Future<String> dbVerticleDeployment = Future.future();
         vertx.deployVerticle(new WikiDatabaseVerticle(), dbVerticleDeployment);
-
         dbVerticleDeployment.compose(id -> {
             Future<String> httpVerticleDeployment = Future.future();
             vertx.deployVerticle(HttpServerVerticle.class,
@@ -27,6 +24,11 @@ public class MainVerticle extends AbstractVerticle {
     }
 
     public static void main(String[] args) {
-        Vertx.vertx().deployVerticle(MainVerticle.class.getName());
+        Vertx.vertx(new VertxOptions().setMetricsOptions(
+                new DropwizardMetricsOptions()
+                        .setEnabled(true)
+                        .setJmxEnabled(true)
+                        .setJmxDomain("vertx-metrics")
+        )).deployVerticle(MainVerticle.class.getName());
     }
 }
